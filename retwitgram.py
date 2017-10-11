@@ -4,7 +4,7 @@ from uuid import uuid4
 from telegram.ext import Updater, CommandHandler, MessageHandler, \
     Filters, InlineQueryHandler
 from telegram import InlineQueryResultArticle, ParseMode, \
-    InputTextMessageContent
+    InputTextMessageContent, ChatAction
 
 # Twitter API
 auth = tweepy.OAuthHandler(
@@ -48,11 +48,23 @@ def start(bot, update):
 # direct chat
 def directresponse(bot, update):
     msg = update.message.text
+    bot.send_chat_action(
+        chat_id=update.message.chat_id,
+        action=ChatAction.TYPING)
     link = re.search("(?P<url>https?://[^\s]+)", msg).group('url')
     extend(link)
 
-    response = tweet.text + ' \n\n 👤 <a href=\"' + link + '\">' + \
-        tweet.user.name + '</a>'
+    # response = tweet.text + ' \n\n 👤 <a href=\"' + link + '\">' + \
+    #     tweet.user.name + '</a>'
+
+    if tweet.is_quote_status:
+        response = tweet.text + '\n\n' + '           💬' + '  ' + \
+            tweet.quoted_status['user']['name'] + ' : ' + \
+            tweet.quoted_status['text'] + \
+            ' \n\n 👤 <a href=\"' + link + '\">' + tweet.user.name + '</a>'
+    else:
+        response = tweet.text + ' \n\n 👤 <a href=\"' + link + '\">' + \
+            tweet.user.name + '</a>'
 
     bot.sendMessage(
         parse_mode='HTML',
@@ -78,7 +90,7 @@ def inlinequery(bot, update):
             title=" ▶️ Retwittgram",
             description="type tweet link",
             url="https://twitter.com/user/status/9876543210",
-            thumb_url="http://137.74.154.122/retwittgram.png",
+            thumb_url="http://domain/retwittgram.png",
             input_message_content=InputTextMessageContent(
                 " ♻️ @retwitgrambot sends your tweet beautifully ")))
 
@@ -117,8 +129,22 @@ def cancel(bot, update):
 
 # About function
 def about(bot, update):
-    abouttext = "  ♻️ @retwitgrambot sends your tweet beautifully "
+    abouttext = "  ♻️ @retwitgrambot sends your tweet beautifully \n" + \
+        "🔗 https://github.com/mostafaasadi/retwitgram"
     bot.sendMessage(chat_id=update.message.chat_id, text=abouttext)
+
+
+# help function
+def helpf(bot, update):
+    bot.sendChatAction(
+        chat_id=update.message.chat_id,
+        action=ChatAction.RECORD_VIDEO)
+    bot.sendChatAction(
+        chat_id=update.message.chat_id,
+        action=ChatAction.UPLOAD_VIDEO)
+    bot.sendDocument(
+        chat_id=update.message.chat_id,
+        document='BQADBAADkgEAAnSB8FIc_ncoMlDLZwI')
 
 
 def main():
@@ -127,12 +153,14 @@ def main():
     second_handler = MessageHandler(Filters.text, directresponse)
     cancel_handler = CommandHandler('cancel', cancel)
     about_handler = CommandHandler('about', about)
+    help_handler = CommandHandler('help', helpf)
 
     # handle dispatcher
     dispatcher.add_handler(InlineQueryHandler(inlinequery))
     dispatcher.add_handler(start_handler)
     dispatcher.add_handler(second_handler)
     dispatcher.add_handler(about_handler)
+    dispatcher.add_handler(help_handler)
     dispatcher.add_handler(cancel_handler)
 
     # run
