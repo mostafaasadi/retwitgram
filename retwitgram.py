@@ -22,12 +22,6 @@ updater = Updater(token='HTTP API')
 dispatcher = updater.dispatcher
 
 
-def filewrite(filename, mode, string):
-    f = open(filename, mode)
-    f.write(str(string))
-    f.close()
-
-
 # extend and get tweet
 def extend(link):
     global tweet
@@ -36,7 +30,6 @@ def extend(link):
         tweet = api.get_status(id)
     except Exception:
         print('Error on extend tweets')
-    filewrite('retwittgrambot', 'a', tweet.user.name + '\n')
     return tweet
 
 
