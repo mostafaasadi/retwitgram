@@ -137,7 +137,7 @@ def helpf(bot, update):
         action=ChatAction.UPLOAD_VIDEO)
     bot.sendDocument(
         chat_id=update.message.chat_id,
-        document='BQADBAADkgEAAnSB8FIc_ncoMlDLZwI')
+        document='CgADBAADzgEAAhvd8FLkIjsOlU6tlwI')
 
 
 def main():
