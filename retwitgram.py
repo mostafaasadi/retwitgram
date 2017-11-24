@@ -14,7 +14,11 @@ auth.set_access_token(
     'key',
     'secret')
 
-api = tweepy.API(auth)
+
+api = tweepy.API(
+    auth,
+    wait_on_rate_limit=True,
+    wait_on_rate_limit_notify=True)
 
 # Telegram API
 # access  bot via token
@@ -22,14 +26,21 @@ updater = Updater(token='HTTP API')
 dispatcher = updater.dispatcher
 
 
+def filewrite(filename, mode, string):
+    f = open(filename, mode)
+    f.write(str(string))
+    f.close()
+
+
 # extend and get tweet
 def extend(link):
     global tweet
     id = link.split('/')[-1]
     try:
-        tweet = api.get_status(id)
+        tweet = api.get_status(id, tweet_mode='extended')
     except Exception:
         print('Error on extend tweets')
+    filewrite('retwittgrambot', 'a', tweet.user.name + '\n')
     return tweet
 
 
@@ -51,12 +62,12 @@ def directresponse(bot, update):
     #     tweet.user.name + '</a>'
 
     if tweet.is_quote_status:
-        response = tweet.text + '\n\n' + '           💬' + '  ' + \
+        response = tweet.full_text + '\n\n' + '           💬' + '  ' + \
             tweet.quoted_status['user']['name'] + ' : ' + \
             tweet.quoted_status['text'] + \
             ' \n\n 👤 <a href=\"' + link + '\">' + tweet.user.name + '</a>'
     else:
-        response = tweet.text + ' \n\n 👤 <a href=\"' + link + '\">' + \
+        response = tweet.full_text + ' \n\n 👤 <a href=\"' + link + '\">' + \
             tweet.user.name + '</a>'
 
     bot.sendMessage(
@@ -65,7 +76,7 @@ def directresponse(bot, update):
         chat_id=update.message.chat_id,
         reply_to_message_id=update.message.message_id,
         text=response
-        )
+    )
 
 
 # inline respond function
@@ -92,18 +103,18 @@ def inlinequery(bot, update):
         tweet = extend(link)
 
         if tweet.is_quote_status:
-            response = tweet.text + '\n\n' + '           💬' + '  ' + \
+            response = tweet.full_text + '\n\n' + '           💬' + '  ' + \
                 tweet.quoted_status['user']['name'] + ' : ' + \
                 tweet.quoted_status['text'] + \
                 ' \n\n 👤 <a href=\"' + link + '\">' + tweet.user.name + '</a>'
         else:
-            response = tweet.text + ' \n\n 👤 <a href=\"' + link + '\">' + \
-                tweet.user.name + '</a>'
+            response = tweet.full_text + ' \n\n 👤 <a href=\"' + link + \
+                '\">' + tweet.user.name + '</a>'
 
         results.append(InlineQueryResultArticle(
             id=uuid4(),
             title=tweet.user.name,
-            description=tweet.text,
+            description=tweet.full_text,
             url=link,
             thumb_url=tweet.user.profile_image_url_https,
             input_message_content=InputTextMessageContent(
