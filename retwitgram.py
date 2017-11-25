@@ -30,7 +30,7 @@ dispatcher = updater.dispatcher
 # extend and get tweet
 def extend(link):
     global tweet
-    id = link.split('/')[-1]
+    id = link.split('/')[-1].split('?')[0]
     try:
         tweet = api.get_status(id, tweet_mode='extended')
     except Exception:
@@ -55,16 +55,16 @@ def button(bot, update):
 
 # direct chat
 def directresponse(bot, update):
-    global link
     msg = update.message.text
     bot.send_chat_action(
         chat_id=update.message.chat_id,
         action=ChatAction.TYPING)
-    link = re.search("(?P<url>https?://[^\s]+)", msg).group('url')
+    link = re.search("(?P<url>https?://[^\s]+)", msg).group('url').split('?')[0]
     extend(link)
+
     kb = [
-        [InlineKeyboardButton(text='🔗', url=link),
-            InlineKeyboardButton(text='ℹ️', callback_data=link),
+        [InlineKeyboardButton(text='🔗', url=str(link)),
+            InlineKeyboardButton(text='ℹ️', callback_data=str(link)),
             InlineKeyboardButton(text='🔀', switch_inline_query=str(link))]
     ]
     if tweet.is_quote_status:
@@ -77,19 +77,35 @@ def directresponse(bot, update):
     else:
         response = tweet.full_text + ' \n\n 👤 <a href=\"' + link + '\">' + \
             tweet.user.name + '</a>'
-
     if 'media' in tweet.entities:
         if tweet.entities['media'][0]['type'] == 'photo':
             pure_text = re.sub(r"http\S+", '', tweet.full_text)
             response = pure_text + ' \n\n 👤 ' + tweet.user.name + \
                 '\n ' + tweet.entities['media'][0]['url']
-            bot.sendPhoto(
-                photo=tweet.entities['media'][0]['media_url_https'],
-                chat_id=update.message.chat_id,
-                reply_markup=InlineKeyboardMarkup(kb, resize_keyboard=True),
-                reply_to_message_id=update.message.message_id,
-                caption=response
-            )
+            if len(response) > 200:
+                response = '<a href=\"' + \
+                    tweet.entities['media'][0]['media_url_https'] + \
+                    '\">&#8205;</a> ' + pure_text + ' \n\n 👤 ' + \
+                    tweet.user.name + '\n ' + tweet.entities['media'][0]['url']
+                bot.send_message(
+                    parse_mode='HTML',
+                    chat_id=update.message.chat_id,
+                    reply_markup=InlineKeyboardMarkup(
+                        kb,
+                        resize_keyboard=True),
+                    reply_to_message_id=update.message.message_id,
+                    text=response
+                )
+            else:
+                bot.sendPhoto(
+                    photo=tweet.entities['media'][0]['media_url'],
+                    chat_id=update.message.chat_id,
+                    reply_markup=InlineKeyboardMarkup(
+                        kb,
+                        resize_keyboard=True),
+                    reply_to_message_id=update.message.message_id,
+                    caption=response
+                )
     else:
         bot.send_message(
             parse_mode='HTML',
@@ -104,11 +120,12 @@ def directresponse(bot, update):
 # inline respond function
 def inlinequery(bot, update):
     results = list()
-    link = update.inline_query.query
+    msg = update.inline_query.query
+    link = re.search("(?P<url>https?://[^\s]+)", msg).group('url').split('?')[0]
     results.clear()
 
     # inline mode for zero character
-    if len(link) == 0:
+    if len(msg) == 0:
         results.clear()
 
         results.append(InlineQueryResultArticle(
@@ -136,8 +153,8 @@ def inlinequery(bot, update):
                 '\">' + tweet.user.name + '</a>'
 
         kb = [
-            [InlineKeyboardButton(text='🔗', url=link),
-                InlineKeyboardButton(text='ℹ️', callback_data=link),
+            [InlineKeyboardButton(text='🔗', url=str(link)),
+                InlineKeyboardButton(text='ℹ️', callback_data=str(link)),
                 InlineKeyboardButton(text='🔀', switch_inline_query=str(link))]
         ]
 
@@ -146,16 +163,38 @@ def inlinequery(bot, update):
                 pure_text = re.sub(r"http\S+", '', tweet.full_text)
                 response = pure_text + ' \n\n 👤 ' + tweet.user.name + \
                     '\n ' + tweet.entities['media'][0]['url']
-                results.append(InlineQueryResultPhoto(
-                    id=uuid4(),
-                    type='photo',
-                    photo_url=tweet.entities['media'][0]['media_url_https'],
-                    thumb_url=tweet.entities['media'][0]['media_url_https'],
-                    title=tweet.user.name,
-                    description=pure_text,
-                    caption=response,
-                    reply_markup=InlineKeyboardMarkup(kb, resize_keyboard=True)
-                ))
+                if len(response) > 200:
+                    response = '<a href=\"' + \
+                        tweet.entities['media'][0]['media_url_https'] + \
+                        '\">&#8205;</a> ' + pure_text + ' \n\n 👤 ' + \
+                        tweet.user.name + '\n ' + \
+                        tweet.entities['media'][0]['url']
+                    results.append(InlineQueryResultArticle(
+                        id=uuid4(),
+                        title=tweet.user.name,
+                        description=tweet.full_text,
+                        url=link,
+                        thumb_url=tweet.entities['media'][0]['url'],
+                        reply_markup=InlineKeyboardMarkup(
+                            kb,
+                            resize_keyboard=True),
+                        input_message_content=InputTextMessageContent(
+                            response,
+                            parse_mode=ParseMode.HTML)))
+
+                else:
+                    results.append(InlineQueryResultPhoto(
+                        id=uuid4(),
+                        type='photo',
+                        photo_url=tweet.entities['media'][0]['media_url_https'],
+                        thumb_url=tweet.entities['media'][0]['media_url_https'],
+                        title=tweet.user.name,
+                        description=pure_text,
+                        caption=response,
+                        reply_markup=InlineKeyboardMarkup(
+                            kb,
+                            resize_keyboard=True)
+                    ))
         else:
             results.append(InlineQueryResultArticle(
                 id=uuid4(),
