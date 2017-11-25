@@ -35,7 +35,6 @@ def extend(link):
         tweet = api.get_status(id, tweet_mode='extended')
     except Exception:
         print('Error on extend tweets')
-    filewrite('retwittgrambot', 'a', tweet.user.name + '\n')
     return tweet
 
 
