@@ -121,11 +121,10 @@ def directresponse(bot, update):
 def inlinequery(bot, update):
     results = list()
     msg = update.inline_query.query
-    link = re.search("(?P<url>https?://[^\s]+)", msg).group('url').split('?')[0]
     results.clear()
 
     # inline mode for zero character
-    if len(msg) == 0:
+    if len(msg) <= 5:
         results.clear()
 
         results.append(InlineQueryResultArticle(
@@ -139,6 +138,7 @@ def inlinequery(bot, update):
 
     # inline mode in normal case
     else:
+        link = re.search("(?P<url>https?://[^\s]+)", msg).group('url').split('?')[0]
         tweet = extend(link)
 
         if tweet.is_quote_status:
