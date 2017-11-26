@@ -15,6 +15,8 @@ auth.set_access_token(
     'key',
     'secret')
 
+# bot logo address
+logo_address = "http://domain/retwittgram.png"
 
 api = tweepy.API(
     auth,
@@ -23,19 +25,22 @@ api = tweepy.API(
 
 # Telegram API
 # access  bot via token
-updater = Updater(token='HTTP API')
+updater = Updater(token='Telegram HTTP API Token')
 dispatcher = updater.dispatcher
 
 
 # extend and get tweet
 def extend(link):
-    global tweet
+    global tweet, extend_status
     id = link.split('/')[-1].split('?')[0]
     try:
         tweet = api.get_status(id, tweet_mode='extended')
+        extend_status = True
     except Exception:
-        print('Error on extend tweets')
-    return tweet
+        print('Error on extend')
+        extend_status = False
+
+    return tweet, extend_status
 
 
 def start(bot, update):
@@ -55,76 +60,90 @@ def button(bot, update):
 
 # direct chat
 def directresponse(bot, update):
-    msg = update.message.text
     bot.send_chat_action(
         chat_id=update.message.chat_id,
         action=ChatAction.TYPING)
-    link = re.search("(?P<url>https?://[^\s]+)", msg).group('url').split('?')[0]
-    extend(link)
 
-    kb = [
-        [InlineKeyboardButton(text='🔗', url=str(link)),
-            InlineKeyboardButton(text='ℹ️', callback_data=str(link)),
-            InlineKeyboardButton(text='🔀', switch_inline_query=str(link))]
-    ]
-    if tweet.is_quote_status:
-        pure_text = re.sub(r"http\S+", '', tweet.full_text)
-        response = pure_text + '\n\n' + '           💬' + '  ' + \
-            tweet.quoted_status['user']['name'] + ' : ' + \
-            tweet.quoted_status['full_text'] + \
-            ' \n\n 👤 <a href=\"' + link + '\">' + tweet.user.name + '</a>'
-
-    else:
-        response = tweet.full_text + ' \n\n 👤 <a href=\"' + link + '\">' + \
-            tweet.user.name + '</a>'
-    if 'media' in tweet.entities:
-        if tweet.entities['media'][0]['type'] == 'photo':
-            pure_text = re.sub(r"http\S+", '', tweet.full_text)
-            response = pure_text + ' \n\n 👤 ' + tweet.user.name + \
-                '\n ' + tweet.entities['media'][0]['url']
-            if len(response) > 200:
-                response = '<a href=\"' + \
-                    tweet.entities['media'][0]['media_url_https'] + \
-                    '\">&#8205;</a> ' + pure_text + ' \n\n 👤 ' + \
-                    tweet.user.name + '\n ' + tweet.entities['media'][0]['url']
-                bot.send_message(
-                    parse_mode='HTML',
-                    chat_id=update.message.chat_id,
-                    reply_markup=InlineKeyboardMarkup(
-                        kb,
-                        resize_keyboard=True),
-                    reply_to_message_id=update.message.message_id,
-                    text=response
-                )
-            else:
-                bot.sendPhoto(
-                    photo=tweet.entities['media'][0]['media_url'],
-                    chat_id=update.message.chat_id,
-                    reply_markup=InlineKeyboardMarkup(
-                        kb,
-                        resize_keyboard=True),
-                    reply_to_message_id=update.message.message_id,
-                    caption=response
-                )
-    else:
+    try:
+        link = re.search(
+            '(?P<url>https?://[^\s]+)',
+            update.message.text).group('url').split('?')[0]
+    except:
         bot.send_message(
-            parse_mode='HTML',
-            disable_web_page_preview=True,
             chat_id=update.message.chat_id,
-            reply_markup=InlineKeyboardMarkup(kb, resize_keyboard=True),
             reply_to_message_id=update.message.message_id,
-            text=response
+            text='❌'
+        )
+
+    extend(link)
+    if extend_status:
+        pure_text = re.sub(r"http\S+", '', tweet.full_text)
+        kb = [
+            [InlineKeyboardButton(text='🔗', url=str(link)),
+                InlineKeyboardButton(text='ℹ️', callback_data=str(link)),
+                InlineKeyboardButton(text='🔀', switch_inline_query=str(link))]
+        ]
+        if tweet.is_quote_status:
+            response = pure_text + '\n\n' + '           💬' + '  ' + \
+                tweet.quoted_status['user']['name'] + ' : ' + \
+                tweet.quoted_status['full_text'] + \
+                ' \n\n 👤 <a href=\"' + link + '\">' + tweet.user.name + '</a>'
+
+        else:
+            response = tweet.full_text + ' \n\n 👤 <a href=\"' + \
+                link + '\">' + tweet.user.name + '</a>'
+        if 'media' in tweet.entities:
+            if tweet.entities['media'][0]['type'] == 'photo':
+                response = pure_text + ' \n\n 👤 ' + tweet.user.name + \
+                    '\n ' + tweet.entities['media'][0]['url']
+                if len(response) > 200:
+                    response = '<a href=\"' + \
+                        tweet.entities['media'][0]['media_url_https'] + \
+                        '\">&#8205;</a> ' + pure_text + ' \n\n 👤 ' + \
+                        tweet.user.name + '\n ' +\
+                        tweet.entities['media'][0]['url']
+                    bot.send_message(
+                        parse_mode='HTML',
+                        chat_id=update.message.chat_id,
+                        reply_markup=InlineKeyboardMarkup(
+                            kb,
+                            resize_keyboard=True),
+                        reply_to_message_id=update.message.message_id,
+                        text=response
+                    )
+                else:
+                    bot.sendPhoto(
+                        photo=tweet.entities['media'][0]['media_url'],
+                        chat_id=update.message.chat_id,
+                        reply_markup=InlineKeyboardMarkup(
+                            kb,
+                            resize_keyboard=True),
+                        reply_to_message_id=update.message.message_id,
+                        caption=response
+                    )
+        else:
+            bot.send_message(
+                parse_mode='HTML',
+                disable_web_page_preview=True,
+                chat_id=update.message.chat_id,
+                reply_markup=InlineKeyboardMarkup(kb, resize_keyboard=True),
+                reply_to_message_id=update.message.message_id,
+                text=response
+            )
+    if not extend_status:
+        bot.send_message(
+            chat_id=update.message.chat_id,
+            reply_to_message_id=update.message.message_id,
+            text='❌'
         )
 
 
 # inline respond function
 def inlinequery(bot, update):
     results = list()
-    msg = update.inline_query.query
     results.clear()
-
     # inline mode for zero character
-    if len(msg) <= 5:
+    if len(update.inline_query.query) <= 5:
         results.clear()
 
         results.append(InlineQueryResultArticle(
@@ -132,82 +151,95 @@ def inlinequery(bot, update):
             title=" ▶️ Retwittgram",
             description="type tweet link",
             url="https://twitter.com/user/status/9876543210",
-            thumb_url="http://ip/retwittgram.png",
+            thumb_url=logo_address,
             input_message_content=InputTextMessageContent(
                 " ♻️ @retwitgrambot sends your tweet beautifully ")))
 
     # inline mode in normal case
     else:
-        link = re.search("(?P<url>https?://[^\s]+)", msg).group('url').split('?')[0]
-        tweet = extend(link)
+        link = re.search(
+            '(?P<url>https?://[^\s]+)',
+            update.inline_query.query).group('url').split('?')[0]
 
-        if tweet.is_quote_status:
-            pure_text = re.sub(r"http\S+", '', tweet.full_text)
-            response = pure_text + '\n\n' + '           💬' + '  ' + \
-                tweet.quoted_status['user']['name'] + ' : ' + \
-                tweet.quoted_status['full_text'] + \
-                ' \n\n 👤 <a href=\"' + link + '\">' + tweet.user.name + '</a>'
+        extend(link)
+        pure_text = re.sub(r"http\S+", '', tweet.full_text)
 
-        else:
-            response = tweet.full_text + ' \n\n 👤 <a href=\"' + link + \
-                '\">' + tweet.user.name + '</a>'
+        if extend_status:
+            if tweet.is_quote_status:
+                response = pure_text + '\n\n' + '           💬' + '  ' + \
+                    tweet.quoted_status['user']['name'] + ' : ' + \
+                    tweet.quoted_status['full_text'] + ' \n\n 👤 <a href=\"' + \
+                    link + '\">' + tweet.user.name + '</a>'
 
-        kb = [
-            [InlineKeyboardButton(text='🔗', url=str(link)),
-                InlineKeyboardButton(text='ℹ️', callback_data=str(link)),
-                InlineKeyboardButton(text='🔀', switch_inline_query=str(link))]
-        ]
+            else:
+                response = tweet.full_text + ' \n\n 👤 <a href=\"' + link + \
+                    '\">' + tweet.user.name + '</a>'
 
-        if 'media' in tweet.entities:
-            if tweet.entities['media'][0]['type'] == 'photo':
-                pure_text = re.sub(r"http\S+", '', tweet.full_text)
-                response = pure_text + ' \n\n 👤 ' + tweet.user.name + \
-                    '\n ' + tweet.entities['media'][0]['url']
-                if len(response) > 200:
-                    response = '<a href=\"' + \
-                        tweet.entities['media'][0]['media_url_https'] + \
-                        '\">&#8205;</a> ' + pure_text + ' \n\n 👤 ' + \
-                        tweet.user.name + '\n ' + \
-                        tweet.entities['media'][0]['url']
-                    results.append(InlineQueryResultArticle(
-                        id=uuid4(),
-                        title=tweet.user.name,
-                        description=tweet.full_text,
-                        url=link,
-                        thumb_url=tweet.entities['media'][0]['url'],
-                        reply_markup=InlineKeyboardMarkup(
-                            kb,
-                            resize_keyboard=True),
-                        input_message_content=InputTextMessageContent(
-                            response,
-                            parse_mode=ParseMode.HTML)))
+            kb = [
+                [InlineKeyboardButton(text='🔗', url=link),
+                    InlineKeyboardButton(text='ℹ️', callback_data=link),
+                    InlineKeyboardButton(text='🔀', switch_inline_query=link)]
+            ]
 
-                else:
-                    results.append(InlineQueryResultPhoto(
-                        id=uuid4(),
-                        type='photo',
-                        photo_url=tweet.entities['media'][0]['media_url_https'],
-                        thumb_url=tweet.entities['media'][0]['media_url_https'],
-                        title=tweet.user.name,
-                        description=pure_text,
-                        caption=response,
-                        reply_markup=InlineKeyboardMarkup(
-                            kb,
-                            resize_keyboard=True)
-                    ))
-        else:
+            if 'media' in tweet.entities:
+                if tweet.entities['media'][0]['type'] == 'photo':
+                    response = pure_text + ' \n\n 👤 ' + tweet.user.name + \
+                        '\n ' + tweet.entities['media'][0]['url']
+                    if len(response) > 200:
+                        response = '<a href=\"' + \
+                            tweet.entities['media'][0]['media_url_https'] + \
+                            '\">&#8205;</a> ' + pure_text + ' \n\n 👤 ' + \
+                            tweet.user.name + '\n ' + \
+                            tweet.entities['media'][0]['url']
+                        results.append(InlineQueryResultArticle(
+                            id=uuid4(),
+                            title=tweet.user.name,
+                            description=tweet.full_text,
+                            url=link,
+                            thumb_url=tweet.entities['media'][0]['url'],
+                            reply_markup=InlineKeyboardMarkup(
+                                kb,
+                                resize_keyboard=True),
+                            input_message_content=InputTextMessageContent(
+                                response,
+                                parse_mode=ParseMode.HTML)))
+
+                    else:
+                        results.append(InlineQueryResultPhoto(
+                            id=uuid4(),
+                            type='photo',
+                            photo_url=tweet.entities['media'][0]['media_url'],
+                            thumb_url=tweet.entities['media'][0]['media_url'],
+                            title=tweet.user.name,
+                            description=pure_text,
+                            caption=response,
+                            reply_markup=InlineKeyboardMarkup(
+                                kb,
+                                resize_keyboard=True)
+                        ))
+            else:
+                results.append(InlineQueryResultArticle(
+                    id=uuid4(),
+                    title=tweet.user.name,
+                    description=tweet.full_text,
+                    url=link,
+                    thumb_url=tweet.user.profile_image_url_https,
+                    reply_markup=InlineKeyboardMarkup(
+                        kb,
+                        resize_keyboard=True),
+                    input_message_content=InputTextMessageContent(
+                        response,
+                        parse_mode=ParseMode.HTML,
+                        disable_web_page_preview=True)))
+        if not extend_status:
             results.append(InlineQueryResultArticle(
                 id=uuid4(),
-                title=tweet.user.name,
-                description=tweet.full_text,
-                url=link,
-                thumb_url=tweet.user.profile_image_url_https,
-                reply_markup=InlineKeyboardMarkup(kb, resize_keyboard=True),
+                title=" ▶️ Retwittgram",
+                description="❌",
+                url="https://twitter.com/user/status/9876543210",
+                thumb_url=logo_address,
                 input_message_content=InputTextMessageContent(
-                    response,
-                    parse_mode=ParseMode.HTML,
-                    disable_web_page_preview=True)))
-
+                    " ♻️ @retwitgrambot sends your tweet beautifully ")))
     # update inline respond
     update.inline_query.answer(results)
 
