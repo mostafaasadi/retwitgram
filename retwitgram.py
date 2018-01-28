@@ -21,7 +21,11 @@ logo_address = "http://domain/retwittgram.png"
 api = tweepy.API(
     auth,
     wait_on_rate_limit=True,
-    wait_on_rate_limit_notify=True)
+    wait_on_rate_limit_notify=True,
+    retry_count=2,
+    retry_delay=2,
+    compression=True
+)
 
 # Telegram API
 # access  bot via token
@@ -68,7 +72,7 @@ def directresponse(bot, update):
         link = re.search(
             '(?P<url>https?://[^\s]+)',
             update.message.text).group('url').split('?')[0]
-    except:
+    except Exception:
         bot.send_message(
             chat_id=update.message.chat_id,
             reply_to_message_id=update.message.message_id,
@@ -93,7 +97,10 @@ def directresponse(bot, update):
             response = tweet.full_text + ' \n\n 👤 <a href=\"' + \
                 link + '\">' + tweet.user.name + '</a>'
         if 'media' in tweet.entities:
-            if tweet.entities['media'][0]['type'] == 'photo':
+            if (
+                    tweet.entities['media'][0]['type'] == 'photo' and
+                    not tweet.extended_entities['media'][0]['type'] == 'video'
+            ):
                 response = pure_text + ' \n\n 👤 ' + tweet.user.name + \
                     '\n ' + tweet.entities['media'][0]['url']
                 if len(response) > 200:
@@ -114,6 +121,63 @@ def directresponse(bot, update):
                 else:
                     bot.sendPhoto(
                         photo=tweet.entities['media'][0]['media_url'],
+                        chat_id=update.message.chat_id,
+                        reply_markup=InlineKeyboardMarkup(
+                            kb,
+                            resize_keyboard=True),
+                        reply_to_message_id=update.message.message_id,
+                        caption=response
+                    )
+
+            if tweet.extended_entities['media'][0]['video_info']['variants'][0]['content_type'] == 'video/mp4':
+                response = pure_text + ' \n\n 👤 ' + tweet.user.name + \
+                    '\n ' + tweet.entities['media'][0]['url']
+                if len(response) > 200:
+                    response = '<a href=\"' + \
+                        tweet.extended_entities['media'][0]['video_info']['variants'][0]['url'] + \
+                        '\">&#8205;</a> ' + pure_text + ' \n\n 👤 ' + \
+                        tweet.user.name + '\n ' +\
+                        tweet.entities['media'][0]['url']
+                    bot.send_message(
+                        parse_mode='HTML',
+                        chat_id=update.message.chat_id,
+                        reply_markup=InlineKeyboardMarkup(
+                            kb,
+                            resize_keyboard=True),
+                        reply_to_message_id=update.message.message_id,
+                        text=response
+                    )
+                else:
+                    bot.send_video(
+                        video=tweet.extended_entities['media'][0]['video_info']['variants'][0]['url'],
+                        chat_id=update.message.chat_id,
+                        reply_markup=InlineKeyboardMarkup(
+                            kb,
+                            resize_keyboard=True),
+                        reply_to_message_id=update.message.message_id,
+                        caption=response
+                    )
+            elif tweet.extended_entities['media'][0]['video_info']['variants'][1]['content_type'] == 'video/mp4':
+                response = pure_text + ' \n\n 👤 ' + tweet.user.name + \
+                    '\n ' + tweet.entities['media'][0]['url']
+                if len(response) > 200:
+                    response = '<a href=\"' + \
+                        tweet.extended_entities['media'][0]['video_info']['variants'][1]['url'] + \
+                        '\">&#8205;</a> ' + pure_text + ' \n\n 👤 ' + \
+                        tweet.user.name + '\n ' +\
+                        tweet.entities['media'][0]['url']
+                    bot.send_message(
+                        parse_mode='HTML',
+                        chat_id=update.message.chat_id,
+                        reply_markup=InlineKeyboardMarkup(
+                            kb,
+                            resize_keyboard=True),
+                        reply_to_message_id=update.message.message_id,
+                        text=response
+                    )
+                else:
+                    bot.send_video(
+                        video=tweet.extended_entities['media'][0]['video_info']['variants'][1]['url'],
                         chat_id=update.message.chat_id,
                         reply_markup=InlineKeyboardMarkup(
                             kb,
@@ -182,7 +246,10 @@ def inlinequery(bot, update):
             ]
 
             if 'media' in tweet.entities:
-                if tweet.entities['media'][0]['type'] == 'photo':
+                if (
+                        tweet.entities['media'][0]['type'] == 'photo' and
+                        not tweet.extended_entities['media'][0]['type'] == 'video'
+                ):
                     response = pure_text + ' \n\n 👤 ' + tweet.user.name + \
                         '\n ' + tweet.entities['media'][0]['url']
                     if len(response) > 200:
@@ -217,20 +284,46 @@ def inlinequery(bot, update):
                                 kb,
                                 resize_keyboard=True)
                         ))
-            else:
-                results.append(InlineQueryResultArticle(
-                    id=uuid4(),
-                    title=tweet.user.name,
-                    description=tweet.full_text,
-                    url=link,
-                    thumb_url=tweet.user.profile_image_url_https,
-                    reply_markup=InlineKeyboardMarkup(
-                        kb,
-                        resize_keyboard=True),
-                    input_message_content=InputTextMessageContent(
-                        response,
-                        parse_mode=ParseMode.HTML,
-                        disable_web_page_preview=True)))
+                if tweet.extended_entities['media'][0]['video_info']['variants'][0]['content_type'] == 'video/mp4':
+                    response = pure_text + ' \n\n 👤 ' + tweet.user.name + \
+                        '\n ' + tweet.entities['media'][0]['url']
+                    response = '<a href=\"' + \
+                        tweet.extended_entities['media'][0]['video_info']['variants'][0]['url'] + \
+                        '\">&#8205;</a> ' + pure_text + ' \n\n 👤 ' + \
+                        tweet.user.name + '\n ' +\
+                        tweet.entities['media'][0]['url']
+                    results.append(InlineQueryResultArticle(
+                        id=uuid4(),
+                        title=tweet.user.name,
+                        description=tweet.full_text,
+                        url=link,
+                        thumb_url=tweet.entities['media'][0]['url'],
+                        reply_markup=InlineKeyboardMarkup(
+                            kb,
+                            resize_keyboard=True),
+                        input_message_content=InputTextMessageContent(
+                            response,
+                            parse_mode=ParseMode.HTML)))
+
+                elif tweet.extended_entities['media'][0]['video_info']['variants'][1]['content_type'] == 'video/mp4':
+                    response = '<a href=\"' + \
+                        tweet.extended_entities['media'][0]['video_info']['variants'][1]['url'] + \
+                        '\">&#8205;</a> ' + pure_text + ' \n\n 👤 ' + \
+                        tweet.user.name + '\n ' +\
+                        tweet.entities['media'][0]['url']
+                    results.append(InlineQueryResultArticle(
+                        id=uuid4(),
+                        title=tweet.user.name,
+                        description=tweet.full_text,
+                        url=link,
+                        thumb_url=tweet.entities['media'][0]['url'],
+                        reply_markup=InlineKeyboardMarkup(
+                            kb,
+                            resize_keyboard=True),
+                        input_message_content=InputTextMessageContent(
+                            response,
+                            parse_mode=ParseMode.HTML)))
+
         if not extend_status:
             results.append(InlineQueryResultArticle(
                 id=uuid4(),
@@ -289,7 +382,6 @@ def main():
     # run
     updater.start_polling()
     updater.idle()
-    updater.stop()
 
 
 if __name__ == '__main__':
