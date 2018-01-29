@@ -64,9 +64,6 @@ def button(bot, update):
 
 # direct chat
 def directresponse(bot, update):
-    bot.send_chat_action(
-        chat_id=update.message.chat_id,
-        action=ChatAction.TYPING)
 
     try:
         link = re.search(
@@ -78,7 +75,9 @@ def directresponse(bot, update):
             reply_to_message_id=update.message.message_id,
             text='❌'
         )
-
+    bot.send_chat_action(
+        chat_id=update.message.chat_id,
+        action=ChatAction.TYPING)
     extend(link)
     if extend_status:
         pure_text = re.sub(r"http\S+", '', tweet.full_text)
@@ -206,6 +205,7 @@ def directresponse(bot, update):
 def inlinequery(bot, update):
     results = list()
     results.clear()
+    link = ''
     # inline mode for zero character
     if len(update.inline_query.query) <= 5:
         results.clear()
@@ -229,6 +229,11 @@ def inlinequery(bot, update):
         pure_text = re.sub(r"http\S+", '', tweet.full_text)
 
         if extend_status:
+            kb = [
+                [InlineKeyboardButton(text='🔗', url=link),
+                    InlineKeyboardButton(text='ℹ️', callback_data=link),
+                    InlineKeyboardButton(text='🔀', switch_inline_query=link)]
+            ]
             if tweet.is_quote_status:
                 response = pure_text + '\n\n' + '           💬' + '  ' + \
                     tweet.quoted_status['user']['name'] + ' : ' + \
@@ -238,55 +243,44 @@ def inlinequery(bot, update):
             else:
                 response = tweet.full_text + ' \n\n 👤 <a href=\"' + link + \
                     '\">' + tweet.user.name + '</a>'
-
-            kb = [
-                [InlineKeyboardButton(text='🔗', url=link),
-                    InlineKeyboardButton(text='ℹ️', callback_data=link),
-                    InlineKeyboardButton(text='🔀', switch_inline_query=link)]
-            ]
+                results.append(InlineQueryResultArticle(
+                    id=uuid4(),
+                    title=tweet.user.name,
+                    description=pure_text,
+                    reply_markup=InlineKeyboardMarkup(
+                        kb,
+                        resize_keyboard=True),
+                    input_message_content=InputTextMessageContent(
+                        response,
+                        parse_mode=ParseMode.HTML)))
+                update.inline_query.answer(results)
 
             if 'media' in tweet.entities:
                 if (
                         tweet.entities['media'][0]['type'] == 'photo' and
                         not tweet.extended_entities['media'][0]['type'] == 'video'
                 ):
-                    response = pure_text + ' \n\n 👤 ' + tweet.user.name + \
-                        '\n ' + tweet.entities['media'][0]['url']
-                    if len(response) > 200:
-                        response = '<a href=\"' + \
-                            tweet.entities['media'][0]['media_url_https'] + \
-                            '\">&#8205;</a> ' + pure_text + ' \n\n 👤 ' + \
-                            tweet.user.name + '\n ' + \
-                            tweet.entities['media'][0]['url']
-                        results.append(InlineQueryResultArticle(
-                            id=uuid4(),
-                            title=tweet.user.name,
-                            description=tweet.full_text,
-                            url=link,
-                            thumb_url=tweet.entities['media'][0]['url'],
-                            reply_markup=InlineKeyboardMarkup(
-                                kb,
-                                resize_keyboard=True),
-                            input_message_content=InputTextMessageContent(
-                                response,
-                                parse_mode=ParseMode.HTML)))
+                    response = '<a href=\"' + \
+                        tweet.entities['media'][0]['media_url_https'] + \
+                        '\">&#8205;</a> ' + pure_text + ' \n\n 👤 ' + \
+                        tweet.user.name + '\n ' + \
+                        tweet.entities['media'][0]['url']
+                    results.append(InlineQueryResultArticle(
+                        id=uuid4(),
+                        title=tweet.user.name,
+                        description=tweet.full_text,
+                        url=link,
+                        thumb_url=tweet.entities['media'][0]['url'],
+                        reply_markup=InlineKeyboardMarkup(
+                            kb,
+                            resize_keyboard=True),
+                        input_message_content=InputTextMessageContent(
+                            response,
+                            parse_mode=ParseMode.HTML)))
 
-                    else:
-                        results.append(InlineQueryResultPhoto(
-                            id=uuid4(),
-                            type='photo',
-                            photo_url=tweet.entities['media'][0]['media_url'],
-                            thumb_url=tweet.entities['media'][0]['media_url'],
-                            title=tweet.user.name,
-                            description=pure_text,
-                            caption=response,
-                            reply_markup=InlineKeyboardMarkup(
-                                kb,
-                                resize_keyboard=True)
-                        ))
+                    update.inline_query.answer(results)
+
                 if tweet.extended_entities['media'][0]['video_info']['variants'][0]['content_type'] == 'video/mp4':
-                    response = pure_text + ' \n\n 👤 ' + tweet.user.name + \
-                        '\n ' + tweet.entities['media'][0]['url']
                     response = '<a href=\"' + \
                         tweet.extended_entities['media'][0]['video_info']['variants'][0]['url'] + \
                         '\">&#8205;</a> ' + pure_text + ' \n\n 👤 ' + \
@@ -304,6 +298,7 @@ def inlinequery(bot, update):
                         input_message_content=InputTextMessageContent(
                             response,
                             parse_mode=ParseMode.HTML)))
+                    update.inline_query.answer(results)
 
                 elif tweet.extended_entities['media'][0]['video_info']['variants'][1]['content_type'] == 'video/mp4':
                     response = '<a href=\"' + \
@@ -323,6 +318,7 @@ def inlinequery(bot, update):
                         input_message_content=InputTextMessageContent(
                             response,
                             parse_mode=ParseMode.HTML)))
+                    update.inline_query.answer(results)
 
         if not extend_status:
             results.append(InlineQueryResultArticle(
@@ -333,8 +329,9 @@ def inlinequery(bot, update):
                 thumb_url=logo_address,
                 input_message_content=InputTextMessageContent(
                     " ♻️ @retwitgrambot sends your tweet beautifully ")))
+            update.inline_query.answer(results)
+
     # update inline respond
-    update.inline_query.answer(results)
 
 
 # cancel function
